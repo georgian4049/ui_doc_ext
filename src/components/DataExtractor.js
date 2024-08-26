@@ -4,6 +4,7 @@ import {
   Grid,
   CircularProgress,
   Box,
+  Snackbar,
 } from "@mui/material";
 import { Add as AddIcon, Remove as RemoveIcon, DocumentScanner as DocumentScannerIcon, CloudUpload as CloudUploadIcon } from "@mui/icons-material";
 import ResultsTable from "./ResultsTable";
@@ -17,11 +18,12 @@ import {
   MainHeader,
   MainContainer,
   DividerStyled,
-  ClearButton
+  ClearButton,
 } from "./styles";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { useTranslation } from "react-i18next";
-
+import IconButton from '@mui/material/IconButton';
+import CloseIcon from '@mui/icons-material/Close';
 
 
 const DataExtractor = () => {
@@ -31,6 +33,7 @@ const DataExtractor = () => {
   const [labels, setLabels] = useState([""]);
   const [resultData, setResultData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
   const { t } = useTranslation();
 
   const handleFileChange = (event) => {
@@ -62,7 +65,10 @@ const DataExtractor = () => {
     }
   };
 
-  
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -74,6 +80,8 @@ const DataExtractor = () => {
     });
 
     setLoading(true);
+    setSnackbarOpen(true); // Show snackbar when submission starts
+
     try {
       const response = await fetch("https://api-doc-ext.onrender.com/api/process", {
         method: "POST",
@@ -86,12 +94,16 @@ const DataExtractor = () => {
 
       const result = await response.json();
       setResultData(result);
+      setTimeout(() => {
+        document.getElementById("results-section").scrollIntoView({ behavior: "smooth" });
+      }, 100); // Scroll to results section once data is fetched
     } catch (error) {
       console.error("Error:", error);
     } finally {
       setLoading(false);
     }
   };
+
   const handleClear = () => {
     setProjectName("");
     setImage(null);
@@ -100,29 +112,42 @@ const DataExtractor = () => {
     setResultData(null);
   };
 
-
+  const action = (
+    <>
+      <IconButton
+        size="small"
+        aria-label="close"
+        color="inherit"
+        onClick={handleSnackbarClose}
+      >
+        <CloseIcon fontSize="small" />
+      </IconButton>
+    </>
+  );
   return (
     <MainContainer>
       <MainHeader>
-        <Box sx={{display: "flex", justifyContent: "space-between", width: "100%", flexDirection:"row"}}>
-          <Box sx={{display: "flex", alignItems: "center"}}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%", flexDirection: "row" }}>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
             <DocumentScannerIcon fontSize="large" />
-            <Typography variant="h5" sx={{ marginLeft: 2 }}>Data Extractor</Typography>
+            <Typography variant="h5" sx={{ marginLeft: 2 }}>
+              Data Extractor
+            </Typography>
           </Box>
           <Box>
-        
-        <LanguageSwitcher />
-        </Box>
+            <LanguageSwitcher />
+          </Box>
         </Box>
       </MainHeader>
       <DividerStyled />
       <Box
         sx={{
           display: "flex",
+          flexDirection: { xs: "column", md: "row" }, 
           flex: 1,
-          overflow: "hidden",
           gap: 2,
-          padding: 2
+          padding: 2,
+          overflow: "auto",
         }}
       >
         <FormContainer>
@@ -168,44 +193,28 @@ const DataExtractor = () => {
                     onChange={(e) => handleLabelChange(index, e)}
                   />
                 </Grid>
-                <Grid item xs={2} sx={{ display: 'flex', alignItems: 'center' }}>
-                  <IconButtonStyled
-                    colorType="error"
-                    onClick={() => handleRemoveLabel(index)}
-                    disabled={labels.length === 1}
-                  >
+                <Grid item xs={2} sx={{ display: "flex", alignItems: "center" }}>
+                  <IconButtonStyled colorType="error" onClick={() => handleRemoveLabel(index)} disabled={labels.length === 1}>
                     <RemoveIcon />
                   </IconButtonStyled>
-                  <IconButtonStyled
-                    colorType="primary"
-                    onClick={handleAddLabel}
-                  >
+                  <IconButtonStyled colorType="primary" onClick={handleAddLabel}>
                     <AddIcon />
                   </IconButtonStyled>
                 </Grid>
               </Grid>
             ))}
-          
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', marginTop: 2, gap: 2 }}>
-            <ClearButton
-              variant="outlined"
-              onClick={handleClear}
-            >
-              {t("clear")}
-            </ClearButton>
-            <SubmitButton
-              variant="contained"
-              color="secondary"
-              type="submit"
-              disabled={!projectName || !image || labels.some(label => !label)}
-            >
-              {t("submit")}
-            </SubmitButton>
-          </Box>
+            <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: 2, gap: 2 }}>
+              <ClearButton variant="outlined" onClick={handleClear}>
+                {t("clear")}
+              </ClearButton>
+              <SubmitButton variant="contained" color="secondary" type="submit" disabled={!projectName || !image || labels.some((label) => !label)}>
+                {t("submit")}
+              </SubmitButton>
+            </Box>
           </form>
         </FormContainer>
-        <ResultsContainer>
+        <ResultsContainer id="results-section">
           <Typography variant="h6" gutterBottom>
             {t("results")}
           </Typography>
@@ -234,6 +243,15 @@ const DataExtractor = () => {
           )}
         </ResultsContainer>
       </Box>
+
+      {/* Snackbar for Backend Server Message */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={15000}
+        onClose={handleSnackbarClose}
+        message="Backend server is probably sleeping, so it will take 50 seconds to wake it up and then it runs smoothly after waking up."
+        action={action}
+      />
     </MainContainer>
   );
 };
